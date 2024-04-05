@@ -1,9 +1,9 @@
 const Gameboard = (function () {
   // Object for a cell in the gameboard
-  const createCell = function () {
+  const Cell = function () {
     let value = "";
     const setValue = (piece) => {
-      if (value === "") {
+      if (typeof piece === "string") {
         value = piece;
       }
     };
@@ -21,7 +21,7 @@ const Gameboard = (function () {
   for (let i = 0; i < rows; i++) {
     board[i] = [];
     for (let j = 0; j < cols; j++) {
-      board[i].push(createCell());
+      board[i].push(Cell());
     }
   }
 
@@ -33,6 +33,18 @@ const Gameboard = (function () {
     board[row][col].setValue(piece);
   };
 
+  const getPiece = (row, col) => {
+    return board[row][col].getValue();
+  };
+
+  const clearBoard = () => {
+    for (let i = 0; i < rows; i++) {
+      for (let j = 0; j < cols; j++) {
+        board[i][j].setValue("");
+      }
+    }
+  };
+
   const printBoard = () => {
     const gameboardValues = board.map((row) => row.map((cell) => cell.getValue()));
     console.log(gameboardValues);
@@ -41,19 +53,33 @@ const Gameboard = (function () {
   return {
     printBoard,
     placePiece,
+    getPiece,
     getBoard,
+    clearBoard,
   };
 })();
 
 const GameManager = (function () {
+  const winningPatterns = [
+    [0, 1, 2],
+    [3, 4, 5],
+    [6, 7, 8],
+    [0, 3, 6],
+    [1, 4, 7],
+    [2, 5, 8],
+    [0, 4, 8],
+    [2, 4, 6],
+  ];
   const players = [
     {
       name: "Player 1",
       piece: "X",
+      turnHistory: [],
     },
     {
       name: "Player 2",
       piece: "O",
+      turnHistory: [],
     },
   ];
 
@@ -74,19 +100,46 @@ const GameManager = (function () {
     console.log(`${getActivePlayer().name}'s turn to place piece ${getActivePlayer().piece}`);
   };
 
+  const resetGame = () => {
+    Gameboard.clearBoard();
+    if (activePlayer === players[1]) nextPlayerTurn();
+    players[0].turnHistory = [];
+    players[1].turnHistory = [];
+    printRound();
+  };
+
   const playRound = (row, col) => {
-    // Make better error handling based on sizeof Gameboard.getBoard() or something like that
-    if (row >= rows || row < 0) {
+    let activePlayer = getActivePlayer();
+    let err = false;
+
+    if (row >= Gameboard.getBoard().length || row < 0) {
       console.error("Error: Row value out of bounds");
-      return;
+      err = true;
     }
-    if (col >= cols || col < 0) {
+    if (col >= Gameboard.getBoard()[0].length || col < 0) {
       console.error("Error: Column value out of bounds");
-      return;
+      err = true;
     }
-    console.log(`${getActivePlayer().name} places a ${getActivePlayer().piece} at row:${row} col:${col}!`);
-    Gameboard.placePiece(getActivePlayer().piece, row, col);
-    // game winning logic
+    if (!err && Gameboard.getPiece(row, col) != "") {
+      console.error("Error: Invalid piece placement, cell is not empty");
+      err = true;
+    }
+    if (err) return printRound();
+    console.log(`${activePlayer.name} places a ${activePlayer.piece} at row:${row} col:${col}!`);
+    Gameboard.placePiece(activePlayer.piece, row, col);
+    // Record each player's turn history
+    activePlayer.turnHistory.push(row * Gameboard.getBoard()[0].length + col);
+    // Must be at least 3 turns for winning decisions to be made
+    // Logic compares all arrays of winning combinations to an array of historial piece placements
+    if (activePlayer.turnHistory.length >= 3) {
+      for (let i of winningPatterns) {
+        if (i.every((j) => activePlayer.turnHistory.includes(j))) {
+          console.log(`${activePlayer.name} is the Winner!!!`);
+          Gameboard.printBoard();
+          return;
+        }
+      }
+    }
     nextPlayerTurn();
     printRound();
   };
@@ -99,12 +152,6 @@ const GameManager = (function () {
     nextPlayerTurn,
     getActivePlayer,
     playRound,
+    resetGame,
   };
 })();
-
-// const Pplayer = {
-//   name: "John",
-//   piece: "X", //or O
-//   getName,
-//   getPiece,
-// };
